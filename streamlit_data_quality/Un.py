@@ -42,9 +42,10 @@ def read_excel(source_data):
     return df
 def OLS(df,S1):
     train=df.drop([S1],axis=1)
-    test = df[S1]
-    constant = sm.add_constant(train)
-    model = sm.OLS(list(test),constant)
+    train1 = train.loc[df[S1]!=0]
+    test = df.loc[df[S1]!=0]
+    constant = sm.add_constant(train1)
+    model = sm.OLS(list(test[S1]),constant)
     result = model.fit()
     new_constant=sm.add_constant(train)
     pred = result.predict(new_constant)
@@ -78,9 +79,10 @@ def main():
         selected_choices = st.sidebar.selectbox("Please select your choice:",user_choices)
         
         if selected_choices is not None:
-            if selected_choices == "Dataset Sample":
+            if selected_choices == "Dataset Sample":        
                 st.info("Select dataset has "+str(df.shape[0])+" rows and "+str(df.shape[1])+" columns.")
-                st.write(df)  
+                st.write(df) 
+             
             elif selected_choices == "Data Prediction":
                 choices = ['Ordinary Least Squares','Monte Carlo Simulation','interpolation']
                 old_val = st.sidebar.selectbox(" ",choices,key=f"MyKey{1}")
@@ -89,15 +91,9 @@ def main():
                   
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{2}")
-                    a = []
-                    for i in select:
-                        if df[i].dtypes != object:
-                            a.append(1)
-                        else:
-                            a.append(0)
                     if selection is not None:
                         for i in select:
-                            if selection == i and all(a)==1: 
+                            if selection == i and df[i].dtypes=="int64": 
                                 data = OLS(df,i)
                                 select_data1 = {i:data,"index":np.arange(len(data)),"color":"OLS"}
                                 select_data1 = pd.DataFrame(select_data1)
@@ -115,14 +111,11 @@ def main():
                                     height=400,   
                                     ).interactive()
                                 fig = px.scatter(result,x="index",y=i,color="color")
-                                #figs = px.bar(result,x="index",y=i,color="color")
                                 score = pearsonr(select_data["OLS"],select_data["real"])
-                                #ax.legend("a","b")
                                 tab1,tab2 = st.tabs(["Scatter plot theme", "Histogram theme"])
                                 with tab1:
                                     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
                                 with tab2:
-                                    #st.plotly_chart(figs, theme=None, use_container_width=True)
                                     st.altair_chart(base, use_container_width=True)
                                 
                                 with st.expander("See the OLS and Real data"):
@@ -136,7 +129,7 @@ def main():
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
                     for i in select:
-                        if selection==i and df[i].dtypes!=object:
+                        if selection==i and df[i].dtypes=="int64":
                             df_new = df[1:]
                             df_new = df_new[:-1]
                             train,test=train_test_split(df_new,test_size=0.25,train_size=0.75)
@@ -176,7 +169,7 @@ def main():
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
                     for i in select:
-                        if selection==i and df[i].dtypes!=object:
+                        if selection==i and df[i].dtypes=="int64":
                             y,x,s,m = smp.symbols("x s m y")
                             f = 1/(s*(np.pi*2)**(1/2))*smp.exp(-(x-m)**2/(2*s**2))
                             data = mento(df,f,i)
@@ -221,6 +214,16 @@ def main():
                 
              
             elif  selected_choices == "Data Quality":
+                st.sidebar.write("Is there any columns for classification in the dataset?")
+                Y = st.sidebar.checkbox("Yes")
+                N = st.sidebar.checkbox("No")
+                select = df.keys()
+                if Y:
+                    st.sidebar.write("Which columns aren't classification columns?")
+                    for i in select:
+                        X = st.sidebar.checkbox(i)
+                        if X:
+                            df[i].replace(0,np.nan,inplace=True)
                 box = ["Overview","Score","Data types","Descriptive statistics","Missing values","Duplicate records",
                      "Correlation", "Outliers","Data distribution","Random Forest"]
                 selection = st.selectbox("Data Quality Selection",box,key=f"MyKey{4}") 
@@ -240,7 +243,7 @@ def main():
                         a = types.astype(str)
                         st.table(a)
                     elif selection == "Missing values":
-                        df.replace(0, np.nan, inplace=True)
+                        #df.replace(0, np.nan, inplace=True)
                         types = pd.DataFrame(df.isnull().sum())
                         
                         a = types.astype(str)
@@ -263,7 +266,7 @@ def main():
                         box = df.keys()
                         se = st.selectbox("Select which column you want to check",box,key=f"MyKey{5}")
                         for i in box:
-                            if se == i and df[i].dtypes !=object:
+                            if se == i and df[i].dtypes =="int64":
                                 
                                 sns.boxplot(df[i])
                                 st.pyplot(fig)
@@ -280,14 +283,15 @@ def main():
                         sns.heatmap(df.corr(),annot = True,ax=ax)
                         st.pyplot(fig)
                     elif selection == "Score":
-                        df.replace(0, np.nan, inplace=True)
+                        #df.replace(0, np.nan, inplace=True)
                         x = []
-                        y = max(df.isnull().sum())
+                        box = df.keys()
+                        for i in box:
+                            y =+ len(df[pd.isnull(df[i])])
                         z = df.duplicated().sum()
                         box = df.keys()
                         for i in box:
-                            if df[i].dtypes != object:
-                                a = (np.abs(stats.zscore(df[i])) >= 3)
+                            if df[i].dtypes == "int64":
                                 x.append(len(df[(np.abs(stats.zscore(df[i])) >= 3)]))
                         error = sum(x)+y+z
                          
