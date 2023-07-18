@@ -17,6 +17,7 @@ from scipy.stats.stats import pearsonr
 from sklearn.model_selection import train_test_split
 import sympy as smp
 import seaborn as sns
+from sklearn.ensemble import RandomForestRegressor
 def mento(data,f,i):
     y,x,s,m = smp.symbols("x s m y")
     fs = smp.integrate(f,(x,0,y)).doit()
@@ -45,8 +46,8 @@ def OLS(df,S1):
     constant = sm.add_constant(train)
     model = sm.OLS(list(test),constant)
     result = model.fit()
-    #new_constant=sm.add_constant(train)
-    pred = result.predict()
+    new_constant=sm.add_constant(train)
+    pred = result.predict(new_constant)
     return pred
 def main():
     df = None
@@ -58,12 +59,13 @@ def main():
                 st.sidebar.write("Select Dataset")
                 source_data = st.sidebar.file_uploader("Upload/select source (.csv) data", type = ["csv"])
                 if source_data is not None: 
-                    df = read_csv(source_data)
+                    df = pd.read_csv(source_data)       
             elif selected_data == "excel":
                 st.sidebar.write("Select Dataset")
                 source_data = st.sidebar.file_uploader("Upload/select source (.xlsx) data", type = ["xlsx"])
                 if source_data is not None:
-                    df = read_excel(source_data)
+                    df = pd.read_excel(source_data)
+                   
         
        
     
@@ -84,6 +86,7 @@ def main():
                 old_val = st.sidebar.selectbox(" ",choices,key=f"MyKey{1}")
                 if old_val == "Ordinary Least Squares": 
                     st.markdown("Ordinary Least Squares")
+                  
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{2}")
                     a = []
@@ -94,7 +97,7 @@ def main():
                             a.append(0)
                     if selection is not None:
                         for i in select:
-                            if selection == i and all(a)==1:
+                            if selection == i and all(a)==1: 
                                 data = OLS(df,i)
                                 select_data1 = {i:data,"index":np.arange(len(data)),"color":"OLS"}
                                 select_data1 = pd.DataFrame(select_data1)
@@ -219,7 +222,7 @@ def main():
              
             elif  selected_choices == "Data Quality":
                 box = ["Overview","Score","Data types","Descriptive statistics","Missing values","Duplicate records",
-                     "Correlation", "Outliers","Data distribution"]
+                     "Correlation", "Outliers","Data distribution","Random Forest"]
                 selection = st.selectbox("Data Quality Selection",box,key=f"MyKey{4}") 
                 if selection is not None:
                     if selection == "Overview":
@@ -284,11 +287,28 @@ def main():
                         box = df.keys()
                         for i in box:
                             if df[i].dtypes != object:
+                                a = (np.abs(stats.zscore(df[i])) >= 3)
                                 x.append(len(df[(np.abs(stats.zscore(df[i])) >= 3)]))
                         error = sum(x)+y+z
                          
                         st.write("Overall, the score of data is ",1-error/len(df))
+                    elif selection == "Random Forest":
+                        X,y = df.iloc[:,1:].values,df.iloc[:,0].values
+                        x_train,x_test,y_train,y_test = train_test_split(X,y,test_size=0.3,random_state=0)
+                        regressor = RandomForestRegressor(n_estimators=100,
+                                  random_state=0)
+                        regressor.fit(x_train, y_train)
+                        importances = regressor.feature_importances_
+                        indices = np.argsort(importances)[::-1]
+                        fig = plt.figure(figsize=(4,3))
+                        plt.ylabel("Feature importance")
+                        plt.bar(range(x_train.shape[1]),importances[indices],align="center")
+                        feat_labels = df.columns[1:]
+                        plt.xticks(range(x_train.shape[1]),feat_labels[indices],rotation=60)
+                        plt.xlim([-1,x_train.shape[1]])
+                        st.pyplot(fig)
        
+    
     else:
         st.error("Please select your data to started")
 
