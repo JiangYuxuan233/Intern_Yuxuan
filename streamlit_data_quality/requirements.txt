@@ -1,11 +1,2 @@
 numpy==1.25.1
 scipy==1.11.1
-streamlit==1.12.2
-pandas==1.3.4
-pandas-profiling==3.6.6
-statsmodels==0.14.0
-altair==4.2.2
-plotly==5.15.0
-sympy @ file:///opt/concourse/worker/volumes/live/5ed26665-a223-4942-7dc1-66b2b3830ab1/volume/sympy_1635237064989/work
-matplotlib @ file:///opt/concourse/worker/volumes/live/f670ab63-e220-495e-450b-14c9591f195b/volume/matplotlib-suite_1634667037960/work
-seaborn @ file:///tmp/build/80754af9/seaborn_1629307859561/work
