@@ -1,11 +1,10 @@
 import streamlit as st
 import numpy as np
-from scipy import stats
 import pandas as pd
+import scipy
+from scipy import stats
 from streamlit_pandas_profiling import st_profile_report
 from pandas_profiling import ProfileReport
-import json
-from deepchecks.tabular.suites import full_suite
 import plotly.figure_factory as ff
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
