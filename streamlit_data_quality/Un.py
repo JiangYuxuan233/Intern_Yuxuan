@@ -214,16 +214,23 @@ def main():
                 
              
             elif  selected_choices == "Data Quality":
+                dff = df.copy()
                 st.sidebar.write("Is there any columns for classification in the dataset?")
                 Y = st.sidebar.checkbox("Yes")
                 N = st.sidebar.checkbox("No")
                 select = df.keys()
+                word = []
                 if Y:
-                    st.sidebar.write("Which columns aren't classification columns?")
+                    st.sidebar.write("Which columns are classification columns?")
                     for i in select:
                         X = st.sidebar.checkbox(i)
                         if X:
+                            word.append(i)
+                        elif not X:
                             df[i].replace(0,np.nan,inplace=True)
+                elif N:
+                    #st.write("L")
+                    df.replace(0,np.nan,inplace=True)
                 box = ["Overview","Score","Data types","Descriptive statistics","Missing values","Duplicate records",
                      "Correlation", "Outliers","Data distribution","Random Forest"]
                 selection = st.selectbox("Data Quality Selection",box,key=f"MyKey{4}") 
@@ -244,8 +251,7 @@ def main():
                         st.table(a)
                     elif selection == "Missing values":
                         #df.replace(0, np.nan, inplace=True)
-                        types = pd.DataFrame(df.isnull().sum())
-                        
+                        types = pd.DataFrame(df.isnull().sum())           
                         a = types.astype(str)
                         st.write(a)
                         box = df.keys()
@@ -262,26 +268,77 @@ def main():
                         st.write(a)
                         
                     elif selection == "Outliers":
-                        fig = plt.figure(figsize=(4,3))
-                        box = df.keys()
-                        se = st.selectbox("Select which column you want to check",box,key=f"MyKey{5}")
-                        for i in box:
-                            if se == i and df[i].dtypes =="int64":
-                                
-                                sns.boxplot(df[i])
-                                st.pyplot(fig)
+                        fig = plt.figure(figsize=(15,20))
+                        box = df.select_dtypes(include=['int',"float"])
+                        for i in range(len(box.keys())):
+                            plt.subplot(len(box.keys()),1,i+1)
+                            sns.boxplot(df[box.keys()[i]])
+                            plt.xlabel(box.keys()[i],fontsize=18)  
+                        fig.tight_layout()
+                        st.pyplot(fig)
                     elif selection == "Data distribution":
+                        boxs= df.select_dtypes(include=['int',"float"])
                         box = df.keys()
                         se = st.selectbox("Select which column you want to check",box,key=f"MyKey{6}")
-                        for i in box:
-                            if se == i and df[i].dtypes !=object:
-                                fig = plt.figure(figsize=(4,3))
-                                sns.histplot(data = df,x=i,binwidth=3)
-                                st.pyplot(fig)
+                        for i in boxs:
+                            if se == i and se not in word:
+                                tab1,tab2,tab3 = st.tabs(["Hist_chart","Scatter_chart","Line_chart"])
+                                with tab1:
+                                    fig = plt.figure(figsize=(4,3))
+                                    if word != []:
+                                        ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{7}")
+                                        for j in word: 
+                                            if ss == j: 
+                                                sns.histplot(data = df,x=i,binwidth=3,kde=True,hue=j)
+                                                st.pyplot(fig)
+                                    elif word ==[]:
+                                        sns.histplot(data = df,x=i,binwidth=3,kde=True)
+                                        st.pyplot(fig)
+                                with tab2:
+                                    fig = plt.figure(figsize=(4,3))
+                                    df["counts"]=np.arange(len(df))
+                                    if word != []:
+                                        ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{8}")
+                                        for j in word: 
+                                            if ss == j: 
+                                                sns.scatterplot(data = df,x="counts",y=i,hue=j)
+                                                st.pyplot(fig)
+                                    elif word ==[]:
+                                        sns.scatterplot(data = df,x= "counts",y=i)
+                                        st.pyplot(fig)
+                                with tab3:
+                                    fig = plt.figure(figsize=(4,3))
+                                    df["counts"]=np.arange(len(df))
+                                    if word != []:
+                                        ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{9}")
+                                        for j in word: 
+                                            if ss == j: 
+                                                sns.lineplot(data = df,x="counts",y=i,hue=j)
+                                                st.pyplot(fig)
+                                    elif word ==[]:
+                                        sns.lineplot(data = df,x= "counts",y=i)
+                                        st.pyplot(fig)
+                               
+                            elif se ==i and se in word:
+                                tab1,tab2 = st.tabs(["Pie","  "])
+                                with tab1:
+                                    fig = plt.figure(figsize=(3,3))
+                                    df.groupby([i]).size().plot(kind='pie', y='counts',autopct='%1.0f%%')
+                                    #p.set_ylabel('Counts', size=11)
+                                    st.pyplot(fig)
+                               
+                       
                     elif selection == "Correlation":
-                        fig,ax = plt.subplots()
-                        sns.heatmap(df.corr(),annot = True,ax=ax)
-                        st.pyplot(fig)
+                        box = df.keys()
+                        sr = st.multiselect("Select the columns you want to compare",box,key=f"MyKey{10}")
+                        new = {}
+                        new = pd.DataFrame(new)
+                        for i in range(len(sr)):
+                            new[sr[i]]=df[sr[i]]
+                        if new.empty == False:
+                            fig,ax = plt.subplots()
+                            sns.heatmap(new.corr(),annot = True,ax=ax)
+                            st.pyplot(fig)
                     elif selection == "Score":
                         #df.replace(0, np.nan, inplace=True)
                         x = []
@@ -291,13 +348,18 @@ def main():
                         z = df.duplicated().sum()
                         box = df.keys()
                         for i in box:
-                            if df[i].dtypes == "int64":
+                            if df[i].dtypes == "int64" or  df[i].dtypes == "float64":
                                 x.append(len(df[(np.abs(stats.zscore(df[i])) >= 3)]))
                         error = sum(x)+y+z
-                         
-                        st.write("Overall, the score of data is ",1-error/len(df))
+                        
+                        st.write("number of missing values in the dataset is",y) 
+                        st.write("number of duplicated rows in the dataset is",z)
+                        st.write("number of extreme values in the dataset is", sum(x))
+                        st.write("the dataset has",len(df),"rows")
+                        st.write("Overall, the score of data is ",round(100*(1-error/len(df))))
+                        st.latex(r'''score = (a*missing+b*extreme+c*duplication)/total''')
                     elif selection == "Random Forest":
-                        X,y = df.iloc[:,1:].values,df.iloc[:,0].values
+                        X,y = dff.iloc[:,1:].values,dff.iloc[:,0].values
                         x_train,x_test,y_train,y_test = train_test_split(X,y,test_size=0.3,random_state=0)
                         regressor = RandomForestRegressor(n_estimators=100,
                                   random_state=0)
@@ -307,7 +369,7 @@ def main():
                         fig = plt.figure(figsize=(4,3))
                         plt.ylabel("Feature importance")
                         plt.bar(range(x_train.shape[1]),importances[indices],align="center")
-                        feat_labels = df.columns[1:]
+                        feat_labels = dff.columns[1:]
                         plt.xticks(range(x_train.shape[1]),feat_labels[indices],rotation=60)
                         plt.xlim([-1,x_train.shape[1]])
                         st.pyplot(fig)
