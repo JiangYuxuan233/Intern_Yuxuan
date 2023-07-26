@@ -14,7 +14,10 @@ from sklearn.metrics import accuracy_score
 from scipy.stats.stats import pearsonr
 from sklearn.model_selection import train_test_split
 import sympy as smp
+import pandera as pa
+from pandera.typing import DataFrame, Series
 import seaborn as sns
+from pandera import Column, DataFrameSchema
 from sklearn.ensemble import RandomForestRegressor
 def mento(data,f,i):
     y,x,s,m = smp.symbols("x s m y")
@@ -47,7 +50,24 @@ def OLS(df,S1):
     result = model.fit()
     new_constant=sm.add_constant(train)
     pred = result.predict(new_constant)
-    return pred
+    return test
+def hig(m,c,df,i):
+    col1,col2 = st.columns([1,3])
+    with col1:
+        st.dataframe(m.iloc[:,[-2,-1,-4,-3]])
+    w = m["failure_case"]
+    if len(c)==0:
+        st.write("There is ",len(c),"rows out of range")
+    else:
+        st.write("There is ",c[0],"rows out of range")
+    def highlight(s):
+        if s[i] in list(w):
+            return ['background-color: yellow'] * len(s)
+        else:
+            return ['background-color: white'] * len(s)
+    with col2:
+        openn = df.style.apply(highlight, axis=1)
+        st.write(openn)
 def main():
     df = None
     with st.sidebar.header("Source Data Selection"):
@@ -73,30 +93,46 @@ def main():
         st.header("Dataset")
         
     if df is not None:
-        user_choices = ['Dataset Sample',"Data Quality",'Data Prediction']
+        user_choices = ['Dataset Sample',"Data Quality",'Data Prediction',"Data Validation"]
         selected_choices = st.sidebar.selectbox("Please select your choice:",user_choices)
-        
+        dff = df.copy()
+        st.sidebar.write("Would you consider 0 as missing value?",key=f"MyKey{13}")
+        y =  st.sidebar.checkbox("Yes",key=f"MyKey{223}")
+        n =  st.sidebar.checkbox("No",key=f"MyKey{333}")
+        word = []
+        if y:
+            st.sidebar.write("Is there any columns for classification in the dataset?",key=f"MyKey{23}")
+            Y = st.sidebar.checkbox("Yes")
+            N = st.sidebar.checkbox("No")
+            select = df.keys()
+            if Y:
+                st.sidebar.write("Which columns are classification columns?",key=f"MyKey{33}")
+                for i in select:
+                    X = st.sidebar.checkbox(i)
+                    if X:
+                        word.append(i)
+                    elif not X:
+                        df[i].replace(0,np.nan,inplace=True)
+            elif N:
+                    #st.write("L")
+                df.replace(0,np.nan,inplace=True)
+        elif n:
+            df=dff
+            st.sidebar.write("Is there any columns for classification in the dataset?",key=f"MyKey{23}")
+            Y = st.sidebar.checkbox("Yes")
+            N = st.sidebar.checkbox("No")
+            select = df.keys()
+            if Y:
+                st.sidebar.write("Which columns are classification columns?",key=f"MyKey{33}")
+                for i in select:
+                    X = st.sidebar.checkbox(i)
+                    if X:
+                        word.append(i)
         if selected_choices is not None:
             if selected_choices == "Dataset Sample":        
                 st.info("Select dataset has "+str(df.shape[0])+" rows and "+str(df.shape[1])+" columns.")
                 st.write(df) 
-                dff = df.copy()
-                st.sidebar.write("Is there any columns for classification in the dataset?")
-                Y = st.sidebar.checkbox("Yes")
-                N = st.sidebar.checkbox("No")
-                select = df.keys()
-                word = []
-                if Y:
-                    st.sidebar.write("Which columns are classification columns?")
-                    for i in select:
-                        X = st.sidebar.checkbox(i)
-                        if X:
-                            word.append(i)
-                        elif not X:
-                            df[i].replace(0,np.nan,inplace=True)
-                elif N:
-                    #st.write("L")
-                    df.replace(0,np.nan,inplace=True)
+                
              
             elif selected_choices == "Data Prediction":
                 choices = ['Ordinary Least Squares','Monte Carlo Simulation','interpolation']
@@ -108,7 +144,8 @@ def main():
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{2}")
                     if selection is not None:
                         for i in select:
-                            if selection == i and df[i].dtypes=="int64": 
+                            box = df.select_dtypes(include=['int',"float"])
+                            if selection == i and df.equals(box): 
                                 data = OLS(df,i)
                                 select_data1 = {i:data,"index":np.arange(len(data)),"color":"OLS"}
                                 select_data1 = pd.DataFrame(select_data1)
@@ -144,7 +181,9 @@ def main():
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
                     for i in select:
-                        if selection==i and df[i].dtypes=="int64":
+                        box = df.select_dtypes(include=['int',"float"])
+                        df.replace(np.nan,0,inplace=True)
+                        if selection==i and i in box :
                             df_new = df[1:]
                             df_new = df_new[:-1]
                             train,test=train_test_split(df_new,test_size=0.25,train_size=0.75)
@@ -184,7 +223,9 @@ def main():
                     select = df.keys()
                     selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
                     for i in select:
-                        if selection==i and df[i].dtypes=="int64":
+                        df.replace(np.nan,0,inplace=True)
+                        box = df.select_dtypes(include=['int',"float"])
+                        if selection==i and i in box :
                             y,x,s,m = smp.symbols("x s m y")
                             f = 1/(s*(np.pi*2)**(1/2))*smp.exp(-(x-m)**2/(2*s**2))
                             data = mento(df,f,i)
@@ -198,7 +239,8 @@ def main():
                             result = pd.concat(data1)
                             hist_data = [select_data["Monte Carlo"], select_data["real"]]
                             group_labels = ['Monte Carlo', 'Real']
-                            figs = ff.create_distplot(
+                            from plotly.figure_factory import create_distplot
+                            figs = create_distplot(
                             hist_data, group_labels, bin_size=[0.2, .25, .5])
                             
                             
@@ -229,31 +271,14 @@ def main():
                 
              
             elif  selected_choices == "Data Quality":
-                dff = df.copy()
-                st.sidebar.write("Is there any columns for classification in the dataset?")
-                Y = st.sidebar.checkbox("Yes")
-                N = st.sidebar.checkbox("No")
-                select = df.keys()
-                word = []
-                if Y:
-                    st.sidebar.write("Which columns are classification columns?")
-                    for i in select:
-                        X = st.sidebar.checkbox(i)
-                        if X:
-                            word.append(i)
-                        elif not X:
-                            df[i].replace(0,np.nan,inplace=True)
-                elif N:
-                    #st.write("L")
-                    df.replace(0,np.nan,inplace=True)
                 box = ["Overview","Score","Data types","Descriptive statistics","Missing values","Duplicate records",
                      "Correlation", "Outliers","Data distribution","Random Forest"]
                 selection = st.selectbox("Data Quality Selection",box,key=f"MyKey{4}") 
                 if selection is not None:
                     if selection == "Overview":
-                        df_report = pandas_profiling_report(df)
+                        #df_report = pandas_profiling_report(df)
                         st.write("Profiling")
-                        st_profile_report(df_report)
+                        #st_profile_report(df_report)
                     elif selection == "Data types":
                         types = pd.DataFrame(df.dtypes)
                         
@@ -360,11 +385,9 @@ def main():
                             sns.heatmap(new.corr(),annot = True,ax=ax)
                             st.pyplot(fig)
                     elif selection == "Score":
-                        #df.replace(0, np.nan, inplace=True)
                         x = []
                         box = df.keys()
-                        for i in box:
-                            y =+ len(df[pd.isnull(df[i])])
+                        y =len(df[df.isna().any(axis=1)])
                         z = df.duplicated().sum()
                         box = df.keys()
                         for i in box:
@@ -372,12 +395,15 @@ def main():
                                 x.append(len(df[(np.abs(stats.zscore(df[i])) >= 3)]))
                         error = sum(x)+y+z
                         
-                        st.write("number of missing values in the dataset is",y) 
+                        a = st.write("number of missing values in the dataset is",y
+                                    ) 
                         st.write("number of duplicated rows in the dataset is",z)
                         st.write("number of extreme values in the dataset is", sum(x))
                         st.write("the dataset has",len(df),"rows")
                         st.write("Overall, the score of data is ",round(100*(1-error/len(df))),"percent")
                         st.latex(r'''score = (a*missing+b*extreme+c*duplication)/total''')
+                      
+                        
                     elif selection == "Random Forest":
                         X,y = dff.iloc[:,1:].values,dff.iloc[:,0].values
                         x_train,x_test,y_train,y_test = train_test_split(X,y,test_size=0.3,random_state=0)
@@ -393,7 +419,230 @@ def main():
                         plt.xticks(range(x_train.shape[1]),feat_labels[indices],rotation=60)
                         plt.xlim([-1,x_train.shape[1]])
                         st.pyplot(fig)
-       
+            elif selected_choices == "Data Validation":
+                b = df.keys()
+                se = st.selectbox("Choose columns",b,key=f"MyKey{12}")
+                for i in b:  
+                    if se is not None :
+                        if se == i and i not in word:
+                            if df[i].isnull().sum()==len(df[i]):
+                                st.error("this column is empty")
+                            else:
+                                st.write("What type of data is this?")
+                                agree = st.checkbox('Int/Float')
+                                c = []
+                                if agree:
+                                    st.write("What is the range of your data?")
+                                    minimum = st.number_input('Insert the minimum value')
+                                    
+                                    maximum = st.number_input('Insert the maximum value')
+                                    
+                                    if st.button("Error Result"):
+                                        schema = pa.DataFrameSchema({
+                                      i: pa.Column(float, pa.Check.in_range(minimum,maximum),coerce=True)                                                                                                                       })
+                                        try:
+                                            schema.validate(df, lazy=True)
+                                        except pa.errors.SchemaErrors as err:
+                                                m = err.failure_cases
+                                                c.append(len(err.failure_cases))
+                                                hig(m,c,df,i)
+
+                                agrees = st.checkbox('Str')
+                                if agrees:
+                                    st.write("What is the range of your data?")
+                                    minimum = st.number_input('Insert the minimum length of your string')-1
+                                    maximum = st.number_input('Insert the maximum length of your string')+1
+                                    sele = ["numbers", "letters", "symbols"]
+                                    o = st.multiselect("What is/are included in your column?",["numbers", "letters", "symbols"])
+                                    if o==sele:
+                                        if st.button("Error Result"):
+                                            c = []
+                                            schema = pa.DataFrameSchema({
+                                           i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                                         pa.Check(lambda x: len(x) < maximum, element_wise=True)])})
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err:
+                                                m = err.failure_cases
+                                                c.append(len(err.failure_cases))
+                                                hig(m,c,df,i)
+                                    elif o==["numbers","letters"]:
+                                        if st.button("Error Result"):
+                                            c = []
+                                            schema = pa.DataFrameSchema({
+                                           i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                                         pa.Check(lambda x: len(x) < maximum, element_wise=True),
+                                                         pa.Check.str_matches(r'^[a-z0-9-]+$')])})  
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err:
+                                                m = err.failure_cases
+                                                c.append(len(err.failure_cases))
+                                                hig(m,c,df,i) 
+                                    elif o == ["numbers"]:
+                                        if st.button("Error Result"):
+                                            c = []
+                                            schema = pa.DataFrameSchema({
+                                           i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                                         pa.Check(lambda x: len(x) < maximum, element_wise=True),
+                                                         pa.Check.str_matches(r'^[0-9]+$')])})  
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err:
+                                                m = err.failure_cases
+                                                c.append(len(err.failure_cases))
+                                                hig(m,c,df,i)
+                                    elif o == ["letters"]:
+                                        if st.button("Error Result"):
+                                            c = []
+                                            schema = pa.DataFrameSchema({
+                                           i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                                         pa.Check(lambda x: len(x) < maximum, element_wise=True),
+                                                         pa.Check.str_matches(r'^[a-z]+$')])})  
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err:
+                                                    m = err.failure_cases
+                                                    c.append(len(err.failure_cases))
+                                                    hig(m,c,df,i)
+                                   # elif o == ["numbers","symbols"]:
+                                   #     if st.button("Error Result"):
+                                   #         c = []
+                                   #         schema = pa.DataFrameSchema({
+                                   #        i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                   #                      pa.Check(lambda x: len(x) < maximum, element_wise=True),
+                                   #                      pa.Check.str_matches(r'^[0-9]+$')])})  
+                                   #         try:
+                                   #            schema.validate(df, lazy=True)
+                                   #         except pa.errors.SchemaErrors as err:
+                                   #                 st.dataframe(err.failure_cases)
+                                   #                 c.append(len(err.failure_cases))
+                                   #         if len(c)==0:
+                                   #             st.write("There is ",len(c),"rows out of range")
+                                   #         else:
+                                   #             st.write("There is ",c[0],"rows out of range")
+                                   # elif o == ["letters","symbols"]:
+                                   #     if st.button("Error Result"):
+                                   #         c = []
+                                   #         schema = pa.DataFrameSchema({
+                                   #        i: pa.Column(str, [pa.Check(lambda x: len(x) > minimum, element_wise=True),
+                                   #                      pa.Check(lambda x: len(x) < maximum, element_wise=True),
+                                   #                      pa.Check.str_matches(r'^[a-z]+$')])})  
+                                   #         try:
+                                   #             schema.validate(df, lazy=True)
+                                   #         except pa.errors.SchemaErrors as err:
+                                   #                 st.dataframe(err.failure_cases)
+                                   #                 c.append(len(err.failure_cases))
+                                   #         if len(c)==0:
+                                   #             st.write("There is ",len(c),"rows out of range")
+                                   #         else:
+                                   #             st.write("There is ",c[0],"rows out of range")
+                                #agreess = st.checkbox('Float')
+                                #if agreess:
+                                #    a = float
+                                #    st.write("What is the range of your data?")
+                                ##    minimum = st.number_input('Insert the minimum value')
+                                #   maximum = st.number_input('Insert the maximum value')
+                                agreesss = st.checkbox('Date/Time')
+                                if agreesss:
+                                    st.write("What is the range of your data?")
+                                    minimum = st.date_input('Insert the minimum date')
+                                    maximum = st.date_input('Insert the maximum date')
+                                    df[i] = df[i].astype('datetime64[ns]')
+                                    st.write(i)
+                                    if st.button("Error Result"):
+                                        
+                                        df[i]= df[i].astype('datetime64[ns]').dt.tz_localize(None)
+                                        c =[]
+                                        schema = pa.DataFrameSchema({
+                                       i: pa.Column("datetime64[ns]",[pa.Check(lambda x: x > pd.to_datetime(minimum),element_wise=True),
+                                                      pa.Check(lambda x: x < pd.to_datetime(maximum),element_wise=True) ]               
+                                                             )})  
+                                        try:
+                                            schema.validate(df, lazy=True)
+                                        except pa.errors.SchemaErrors as err:
+                                            m = err.failure_cases
+                                            c.append(len(err.failure_cases))
+                                            hig(m,c,df,i) 
+                                st.write("Are all values in the column unique？") 
+                                Y = st.checkbox("Yes",key=f"MyKey{32}")
+                                N = st.checkbox("No",key=f"MyKey{42}")
+                                if Y:
+                                    st.write("In",i,"there are ",len(df[df[i].duplicated()]),"rows with repeated values.")
+                                    def repeat(s):
+                                         if s[i] in list(df[i][df[i].duplicated()]):
+                                            return ['background-color: yellow'] * len(s)
+                                         else:
+                                            return ['background-color: white'] * len(s)
+                                    fig = plt.figure(figsize=(4,3))
+                                    st.table(df.style.apply(repeat, axis=1)).head()
+                                    st.pyplot(fig)
+                                    #st.write(df[i][df[i].duplicated()])
+                                elif N:
+                                    st.write(":full_moon_with_face:")
+                                t = st.text_input("If you want, type the Regular Expression of your data")
+                                if st.button("Error Result"):
+                                            c = []
+                                            schema = pa.DataFrameSchema({
+                                           i: pa.Column(str, 
+                                                         pa.Check.str_matches(t))})  
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err:
+                                                    m = err.failure_cases
+                                                    c.append(len(err.failure_cases))
+                                                    hig(m,c,df,i)
+                        elif se == i and i in word:
+                            if df[i].isnull().sum()==len(df[i]):
+                                st.error("this column is empty")
+                            else: 
+                                options = st.radio("What sorting options are in this column？",
+                                                         ("number","text"))
+                                if options == "number":
+                                    c = []
+                                    number = st.number_input('How many categories are there？')
+                                    bar = np.arange(int(number))
+                                    if st.button("Error Result"):
+                                            schema = pa.DataFrameSchema({
+                                             i: pa.Column(int,pa.Check.isin(bar), coerce=True)                                                                                                                       })
+                                            try:
+                                                schema.validate(df, lazy=True)
+                                            except pa.errors.SchemaErrors as err: 
+                                                m = err.failure_cases
+                                                c.append(len(err.failure_cases))
+                                                hig(m,c,df,i) 
+                                elif options == "text":
+                                    barr = []
+                                    c = []
+                                    number = st.number_input('How many categories are there？')
+                                    for ii in range(int(number)):
+                                        text = st.text_input("insert name of category",key=f"MyKey{ii}")
+                                        barr.append(text)
+                                    if st.button("Error Result"):
+                                        schema = pa.DataFrameSchema({
+                                         i: pa.Column(str,pa.Check.isin(barr), coerce=True)                                                                                                                       })
+                                        try:
+                                            schema.validate(df, lazy=True)
+                                        except pa.errors.SchemaErrors as err:
+                                            m = err.failure_cases
+                                            c.append(len(err.failure_cases))
+                                            hig(m,c,df,i)
+                                            
+
+
+
+                                   
+                            
+                                    
+                                
+                            
+                            
+#                            box = ["Required fields","Data types","String length","Numeric ranges","Categorical #values","Date/time constraints","Pattern matching","Unique values","Dependencies between columns","Custom validation functions"]
+#                            sr = st.selectbox("Data Validation Selection",box,key=f"MyKey{11}")
+#                            if sr is not None:
+#                                if sr == "Required fields":
+                                     
+         
     
     else:
         st.error("Please select your data to started")
