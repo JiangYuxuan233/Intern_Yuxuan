@@ -19,9 +19,7 @@ from pandera.typing import DataFrame, Series
 import seaborn as sns
 from pandera import Column, DataFrameSchema
 from sklearn.ensemble import RandomForestRegressor
-from config.utils import django_setup
-
-django_setup()
+import django
 
 def mento(data,f,i):
     y,x,s,m = smp.symbols("x s m y")
