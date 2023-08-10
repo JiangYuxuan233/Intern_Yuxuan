@@ -9,6 +9,7 @@ import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import altair as alt
 import plotly.express as px
+import plotly.graph_objects as pxx
 from scipy.interpolate import interp1d
 from sklearn.metrics import accuracy_score
 from scipy.stats.stats import pearsonr
@@ -19,23 +20,15 @@ from pandera.typing import DataFrame, Series
 import seaborn as sns
 from pandera import Column, DataFrameSchema
 from sklearn.ensemble import RandomForestRegressor
-from config.utils import django_setup
-
-django_setup()
-
-def mento(data,f,i):
-    y,x,s,m = smp.symbols("x s m y")
-    fs = smp.integrate(f,(x,0,y)).doit()
-    Fn = smp.lambdify((y,s,m),fs)
-    fn = smp.lambdify((x,s,m),f)
-    s=data[i].std()
-    m=(data[i]).mean()
-    x = np.linspace(min(data[i]),max(data[i]),len(data[i]))
-    f = fn(x,s,m)
-    F = Fn(x,s,m)
-    us = np.random.rand(len(data))
-    F_inv = x[np.searchsorted(F[:-1],us)]
-    return F_inv
+def callback():
+    st.session_state['btn_clicked'] = True
+def remove_outliers(data, column, z_threshold=3):
+    z_scores = np.abs((data[column] - data[column].mean()) / data[column].std())
+    return data[z_scores < z_threshold]
+def remove_duplicates(data):
+    return pd.DataFrame.drop_duplicates(data)
+def remove_nulls(data):
+    return data.dropna()
 def pandas_profiling_report(df):
     df_report = ProfileReport(df,explorative=True)
     return df_report
@@ -88,7 +81,7 @@ def main():
     df = None
     with st.sidebar.header("Source Data Selection"):
         selection = ["csv",'excel']
-        selected_data = st.sidebar.selectbox("Please select your dataset fromat:",selection)
+        selected_data = st.sidebar.selectbox("Please select your dataset format:",selection)
         if selected_data is not None:
             if selected_data == "csv":
                 st.sidebar.write("Select Dataset")
@@ -103,9 +96,7 @@ def main():
                    
         
        
-    
-    #if source_data is not None:
-        #df = read_csv(source_data)
+
         st.header("Dataset")
         
     if df is not None:
@@ -113,42 +104,6 @@ def main():
         selected_choices = st.sidebar.selectbox("Please select your choice:",user_choices)
         word = []
         dff = df.copy()
-#        dff = df.copy()
-#        st.sidebar.write("Would you consider 0 as missing value in the dataset(except classification column)?",key=f"MyKey{13}")
-#        y =  st.sidebar.checkbox("Yes",key=f"MyKey{223}")
-#        n =  st.sidebar.checkbox("No",key=f"MyKey{333}")
-#        word = []
-#        if y:
-#            st.sidebar.write("Is there any columns for classification in the dataset?",key=f"MyKey{23}")
-#            Y = st.sidebar.checkbox("Yes")
-#            N = st.sidebar.checkbox("No")
-#            select = df.keys()
-#            if Y:
-#                st.sidebar.write("Which columns are classification columns?",key=f"MyKey{33}")
-#                for i in select:
-#                    X = st.sidebar.checkbox(i)
-#                    if X:
-#                        word.append(i)
-#                    elif not X:
-#                        df[i].replace(0,np.nan,inplace=True)
-#            elif N:
-#                    #st.write("L")
-#                df.replace(0,np.nan,inplace=True)
-#        elif n:
-#            df=dff
-#            st.sidebar.write("Are there any columns for classification in the dataset?",key=f"MyKey{3323}")
-#            Y = st.sidebar.checkbox("Yes")
-#            N = st.sidebar.checkbox("No")
-#            select = df.keys()
-#            if Y:
-#                st.sidebar.write("Which columns are classification columns?",key=f"MyKey{3333}")
-#                for i in select:
-#                    X = st.sidebar.checkbox(i)
-#                    if X:
-#                        word.append(i)
-        #if selected_choices is not None: 
-                    
-            #if selected_choices == "Dataset Sample": 
         st.sidebar.write("Would you consider 0 as missing value in the dataset (except classification column)?",key=f"MyKey{13}")
         y =  st.sidebar.checkbox("Yes",key=f"MyKey{3223}")
         n =  st.sidebar.checkbox("No",key=f"MyKey{33333}")
@@ -184,144 +139,7 @@ def main():
         with st.expander("See Data Sample"):
             st.info("Selected dataset has "+str(df.shape[0])+" rows and "+str(df.shape[1])+" columns.")
             st.write(df) 
-        if selected_choices is not None:         
-             
-            #elif selected_choices == "Data Prediction":
-#                choices = ['Ordinary Least Squares','Monte Carlo Simulation','interpolation']
-#                old_val = st.sidebar.selectbox(" ",choices,key=f"MyKey{1}")
-#                if old_val == "Ordinary Least Squares": 
-#                    st.markdown("Ordinary Least Squares")
-#                  
-#                    select = df.keys()
-#                    selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{2}")
-#                    if selection is not None:
-#                        for i in select:
-#                            box = df.select_dtypes(include=['int',"float"])
-#                            if selection == i and df.equals(box): 
-#                                data = OLS(df,i)
-#                                select_data1 = {i:data,"index":np.arange(len(data)),"color":"OLS"}
-#                                select_data1 = pd.DataFrame(select_data1)
-#                                select_data2 = {i:df[i],"index":np.arange(len(data)),"color":"Real"}
-#                                select_data2 = pd.DataFrame(select_data2)
-#                                select_data = {"OLS":data,"real":df[i]}
-#                                select_data = pd.DataFrame(select_data)
-#                                data1 = [select_data2,select_data1]
-#                                result = pd.concat(data1)
-#                                base = alt.Chart(result).mark_rule().encode( 
-#                                    x=alt.X('index', axis=alt.Axis( )),
-#                                    y=alt.Y(i,axis=alt.Axis( )),
-#                                    color = "color").properties(
-#                                    width=500,
-#                                    height=400,   
-#                                    ).interactive()
-#                                fig = px.scatter(result,x="index",y=i,color="color")
-#                                score = pearsonr(select_data["OLS"],select_data["real"])
-#                                tab1,tab2 = st.tabs(["Scatter plot theme", "Histogram theme"])
-#                                with tab1:
-#                                    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
-#                                with tab2:
-#                                    st.altair_chart(base, use_container_width=True)
-#                                
-#                                with st.expander("See the OLS and Real data"):
-#                                    st.write(select_data)
-#                                st.write("The correlation coefficient between Real and OLS is",score[0])
-#                                st.write("The corresponding p-value is",score[1])
-#                            elif selection == i:
-#                                st.error("OLS only work with dataset which only include int and float data")
-#                                
-#                elif old_val == "interpolation":
-#                    select = df.keys()
-#                    selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
-#                    for i in select:
-#                        box = df.select_dtypes(include=['int',"float"])
-#                        df.replace(np.nan,0,inplace=True)
-#                        if selection==i and i in box :
-#                            df_new = df[1:]
-#                            df_new = df_new[:-1]
-#                            train,test=train_test_split(df_new,test_size=0.25,train_size=0.75)
-#                            bb = df.loc[df.index==0]
-#                            train = pd.concat([bb,train])
-#                            train.loc[max(df.index),:]=df.iloc[max(df.index)]
-#                            x = np.array(train.index)
-#                            y = np.array(train[i])
-#                            f = interp1d(x,y,kind="cubic")
-#                            new_value = []
-#                            for iii in test.index:
-#                                new_value.append(f(iii))
-#                            select_data1 = {i:new_value,"index":np.arange(len(test.index)),"color":"interp1d"}
-#                            select_data1 = pd.DataFrame(select_data1)
-#                            select_data2 = {i:list(test[i]),"index":np.arange(len(test.index)),"color":"Real"}
-#                            select_data2 = pd.DataFrame(select_data2)
-#                            select_data = {"interp1d":list(map(float, new_value)),"real":list(map(float, test[i]))}
-#                            select_data = pd.DataFrame(select_data)
-#                            data1 = [select_data2,select_data1]
-#                            result = pd.concat(data1)
-#                            score = pearsonr(select_data["interp1d"],select_data["real"])
-#                            fig = px.scatter(result,x="index",y=i,color="color")
-#                            tab1,tab2 = st.tabs(["Scatter plot theme", "Line chart theme"])
-#                            with tab1:
-#                                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
-#                            with tab2:
-#                                st.line_chart(select_data)
-#                                #st.plotly_chart(fig, use_container_width=True)
-#                                #st.altair_chart(base, use_container_width=True)
-#                                
-#                            with st.expander("See the interpolation and Real data"):
-#                                st.write(select_data)
-#                            st.write("The correlation coefficient between Real and interpolation is",score[0])
-#                            st.write("The corresponding p-value is",score[1])
-#                            
-#                elif old_val == "Monte Carlo Simulation":
-#                    select = df.keys()
-#                    selection = st.selectbox("Please select which column you want to do the prediction",select,key=f"MyKey{3}")
-#                    for i in select:
-#                        df.replace(np.nan,0,inplace=True)
-#                        box = df.select_dtypes(include=['int',"float"])
-#                        if selection==i and i in box :
-#                            y,x,s,m = smp.symbols("x s m y")
-#                            f = 1/(s*(np.pi*2)**(1/2))*smp.exp(-(x-m)**2/(2*s**2))
-#                            data = mento(df,f,i)
-#                            select_data1 = {i:data,"index":np.arange(len(data)),"color":"Monte Carlo"}
-#                            select_data1 = pd.DataFrame(select_data1)
-#                            select_data2 = {i:df[i],"index":np.arange(len(data)),"color":"Real"}
-#                            select_data2 = pd.DataFrame(select_data2)
-#                            select_data = {"Monte Carlo":data,"real":df[i]}
-#                            select_data = pd.DataFrame(select_data)
-#                            data1 = [select_data2,select_data1]
-#                            result = pd.concat(data1)
-#                            hist_data = [select_data["Monte Carlo"], select_data["real"]]
-#                            group_labels = ['Monte Carlo', 'Real']
-#                            from plotly.figure_factory import create_distplot
-#                            figs = create_distplot(
-#                            hist_data, group_labels, bin_size=[0.2, .25, .5])
-                            
-#                            
-#                            
-#                            base = alt.Chart(result).mark_rule().encode( 
-#                           x=alt.X('index', axis=alt.Axis( )),
-#                            y=alt.Y(i,axis=alt.Axis( )),
-#                            color = "color").properties(
-#                                  width=500,
-#                                   height=400,   
-#                                   ).interactive()
-#                           fig = px.scatter(result,x="index",y=i,color="color")
-#                               #figs = px.bar(result,x="index",y=i,color="color")
-#                           score = pearsonr(select_data["Monte Carlo"],select_data["real"])
-#                                #ax.legend("a","b")
-#                            tab1,tab2 = st.tabs(["Scatter plot theme", "Distrubtion theme"])
-#                            with tab1:
-#                                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
-#                            with tab2:
-#                                st.plotly_chart(figs, use_container_width=True)
-                                #st.altair_chart(base, use_container_width=True)
-#                                
-#                            with st.expander("See the Monte Carlo and Real data"):
-#                                st.write(select_data)
-#                            st.write("The correlation coefficient between Real and Monte Carlo is",score[0])
-#                            st.write("The corresponding p-value is",score[1])
-                            
-                
-             
+        if selected_choices is not None:                     
             if  selected_choices == "Data Quality":
                 box = ["Overview","Score","Data types","Descriptive statistics","Missing values","Duplicate records",
                      "Correlation", "Outliers","Data distribution","Random Forest"]
@@ -337,10 +155,17 @@ def main():
                         a = types.astype(str)
                         st.dataframe(a)
                     elif selection == "Descriptive statistics":
-                        types = pd.DataFrame(df.describe()).T
-                        
-                        a = types.astype(str)
-                        st.table(a)
+                        types = pd.DataFrame(df.describe())
+                        www = st.multiselect("Please select any data you want to check",types.keys(),key=f"MyKey{555}")
+                        q = None
+                        if len(www)>0:
+                            q = pd.DataFrame({})
+                            for i in www:
+                                q[i]=types[i]
+                        #if q is not None:
+                            st.write(q.T)
+                        else:
+                            st.table(types.T)
                     elif selection == "Missing values":
                         col1,col2 = st.columns([1,4])
                         types = pd.DataFrame(df.isnull().sum())           
@@ -357,64 +182,124 @@ def main():
                         for i in box:
                             if se == i:
                                 st.write(df[pd.isnull(df[i])])
+                        if st.button("Remove Null Values"):
+                            data = remove_nulls(df)
+                            st.write("Data after removing null values")
+                            st.write(data)
                     elif selection == "Duplicate records":
                         types = df[df.duplicated()]
                         
                         a = types.astype(str)
                         st.write("The number of duplicated rows is ",len(types))
                         st.write(a)
-                        
+                        if st.button("Remove Duplicate Values"):
+                            df = remove_duplicates(df)
+                            st.write("Data after removing duplicate values")
+                            st.write(df)
                     elif selection == "Outliers":
                         fig = plt.figure(figsize=(15,20))
                         box = df.select_dtypes(include=['int',"float"])
                         for i in range(len(box.keys())):
                             plt.subplot(len(box.keys()),1,i+1)
-                            sns.boxplot(df[box.keys()[i]])
+                            sns.boxplot(x=df[box.keys()[i]])
                             plt.xlabel(box.keys()[i],fontsize=18)  
                         fig.tight_layout()
                         st.pyplot(fig)
+                        remove = st.checkbox("Remove Outlier Values")
+                        if remove:
+                            selected_column = st.multiselect("Select column", df.keys(),key=f"MyKey{555}")
+                            dff = df
+                            for i in range(len(selected_column)):  
+                                    df = remove_outliers(df, selected_column[i])
+                            if st.button("Remove All Outlier"):
+                                for i in df.keys():
+                                    df = remove_outliers(df, i)
+                                st.write(df)
+                                st.write(len(df))
+                            else:
+                                st.write("Data after removing outliers")
+                                st.write(df)
+                                st.write(len(df))
                     elif selection == "Data distribution":
                         boxs= df.select_dtypes(include=['int',"float"])
                         box = df.keys()
                         se = st.selectbox("Select which column you want to check",box,key=f"MyKey{6}")
                         for i in boxs:
                             if se == i and se not in word:
-                                tab1,tab2,tab3 = st.tabs(["Hist_chart","Scatter_chart","Line_chart"])
+                                tab1,tab2,tab3 = st.tabs(["Histogram graph","Scatter graph","Line graph"])
                                 with tab1:
                                     fig = plt.figure(figsize=(4,3))
+                                    #y0,y1 = st.slider("If you want to change the range of the graph, tell me the y axis range",
+                                    #                  value=(0, len(df[i])))
+                                    x0 = None
+                                    agree = st.checkbox("Change graph range",key=f"MyKey{67551}")
+                                    if agree:
+                                            x0,x1 = st.slider("If you want to change the range of the graph, tell me the x axis range",min(df[i]), max(df[i]),(min(df[i]), max(df[i])),key=f"MyKey{67}")
+                                            y0,y1 = st.slider("If you want to change the range of the graph, tell me the y axis range",0,max(df[i].value_counts()*4),(0,max(df[i].value_counts())),key=f"MyKey{700}")
                                     if word != []:
                                         ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{321}")
                                         for j in word: 
                                             if ss == j: 
                                                 sns.histplot(data = df,x=i,binwidth=3,kde=True,hue=j)
+                                                if x0 is not None:
+                                                    plt.xlim(x0, x1)
+                                                    plt.ylim(y0, y1)    
                                                 st.pyplot(fig)
+                                                
                                     elif word ==[]:
                                         sns.histplot(data = df,x=i,binwidth=3,kde=True)
+                                        if x0 is not None:
+                                            plt.xlim(x0, x1)
+                                            plt.ylim(y0, y1)    
                                         st.pyplot(fig)
+                                                      
                 
                                 with tab2:
                                     fig = plt.figure(figsize=(4,3))
-                                    df["counts"]=np.arange(len(df))
+                                    x0 = None
+                                    df[" "]=np.arange(len(df))
+                                    agree = st.checkbox("Change graph range",key=f"MyKey{6755}")
+                                    if agree:
+                                            x0,x1 = st.slider("If you want to change the range of the graph, tell me the x axis range",min(df[i]), max(df[i]),(min(df[i]), max(df[i])),key=f"MyKey{699}")
+                                            y0,y1 = st.slider("If you want to change the range of the graph, tell me the y axis range",min(df[" "]),max(df[" "]),(min(df[" "]),max(df[" "])),key=f"MyKey{700}")
                                     if word != []:
                                         ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{1128}")
                                         for j in word: 
                                             if ss == j: 
-                                                sns.scatterplot(data = df,x="counts",y=i,hue=j)
+                                                sns.scatterplot(data = df,x=i,y=" ",hue=j)
+                                                if x0 is not None:
+                                                    plt.xlim(x0, x1)
+                                                    plt.ylim(y0, y1)
                                                 st.pyplot(fig)
                                     elif word ==[]:
-                                        sns.scatterplot(data = df,x= "counts",y=i)
+                                        sns.scatterplot(data = df,x=i,y=" ")
+                                        if x0 is not None:
+                                            plt.xlim(x0, x1)
+                                            plt.ylim(y0, y1)
                                         st.pyplot(fig)
                                 with tab3:
                                     fig = plt.figure(figsize=(4,3))
-                                    df["counts"]=np.arange(len(df))
+                                    df["range"]=np.arange(len(df))
+                                    x0 = None
+                                    agree = st.checkbox("Change graph range",key=f"MyKey{65}")
+                                    if agree:
+                                            
+                                            x0,x1 = st.slider("If you want to change the range of the graph, tell me the x axis range",min(df["range"]),max(df["range"]),(min(df["range"]),max(df["range"])),key=f"MyKey{701}")
+                                            y0,y1 = st.slider("If you want to change the range of the graph, tell me the y axis range",min(df[i]), max(df[i]),(min(df[i]), max(df[i])),key=f"MyKey{67055}")
                                     if word != []:
                                         ss = st.selectbox("What classification condition do you want?",word,key=f"MyKey{1122}")
                                         for j in word:
                                             if ss == j: 
-                                                sns.lineplot(data = df,x="counts",y=i,hue=j)
+                                                sns.lineplot(data = df,x="range",y=i,hue=j)
+                                                if x0 is not None:
+                                                    plt.xlim(x0, x1)
+                                                    plt.ylim(y0,y1)
                                                 st.pyplot(fig)
                                     elif word ==[]:
-                                        sns.lineplot(data = df,x= "counts",y=i)
+                                        sns.lineplot(data = df,x="range",y=i)
+                                        if x0 is not None:
+                                            plt.xlim(x0, x1)
+                                            plt.ylim(y0,y1)
                                         st.pyplot(fig)
                                
                             elif se ==i and se in word:
@@ -461,6 +346,8 @@ def main():
                         st.write("the dataset has",len(df),"rows")
                         st.write("Overall, the score of data is ",round(100*(1-error/len(df))),"percent")
                         st.latex(r'''score = (a*missing+b*extreme+c*duplication)/total''')
+                        accuracy = st.number_input("Score_Accuracy")
+                        completeness = st.number_input("Score_Completeness")
                       
                         
                     elif selection == "Random Forest":
@@ -611,20 +498,7 @@ def main():
                                             st.write("There are ",0,"rows out of range")
                                        
                                             
-
-
-
-                                   
-                            
                                     
-                                
-                            
-                            
-#                            box = ["Required fields","Data types","String length","Numeric ranges","Categorical #values","Date/time constraints","Pattern matching","Unique values","Dependencies between columns","Custom validation functions"]
-#                            sr = st.selectbox("Data Validation Selection",box,key=f"MyKey{11}")
-#                            if sr is not None:
-#                                if sr == "Required fields":
-                                     
          
     
     else:
