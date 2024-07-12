@@ -3,7 +3,7 @@ import numpy as np
 import scipy
 from scipy import stats
 import pandas as pd
-import statsmodels.api as sm
+#import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import altair as alt
 import plotly.express as px
